@@ -1,5 +1,7 @@
+#File to test CUDA is working or not.
 import torch
-print(torch.__version__)                  # should be >= 2.5.0
-print(torch.version.cuda)                 # should NOT be None
-print(torch.cuda.is_available())          # should be True
-print(torch.cuda.get_device_name(0))      # should say RTX 4050
+print("RUNNING ON TORCH VERSION ===> ",torch.__version__)                
+print("RUNNING ON CUDA VERSION ===>",torch.version.cuda)                
+print("CUDA AVAILABILITY ===> ",torch.cuda.is_available())          
+if(torch.cuda.is_available()):
+    print("GPU DEVICE NAME ===>",torch.cuda.get_device_name(0))     

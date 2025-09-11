@@ -1,50 +1,132 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <title>TrafficSense — Multi-Intersection AI</title>
-  <style>
-    body{background:#5284c1;color:#e8f0ff;font-family:sans-serif;margin:0}
-    header{padding:16px 24px;border-bottom:1px solid #1f2a37}
-    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:20px}
-    .panel{background:#0f172a;border-radius:12px;padding:12px}
-    img{width:100%;border-radius:10px}
-    table{width:100%;margin-top:10px;border-collapse:collapse}
-    th,td{padding:6px;text-align:center;border-bottom:1px solid #1f2a37}
-    .lights{display:flex;gap:6px;justify-content:center;margin-top:8px}
-    .light{width:20px;height:20px;border-radius:50%;background:#2b3443;opacity:.3}
-    .on.red{background:red;opacity:1}
-    .on.green{background:lime;opacity:1}
-    .on.yellow{background:yellow;opacity:1}
-  </style>
-  <script>
-    async function fetchStats(i){
-      try{
-        const r=await fetch(`/stats${i}`);
-        if(!r.ok) return;
-        const d=await r.json();
-        const timeLeft=(d&&typeof d.time_left!=="undefined")?d.time_left:"—";
-        document.getElementById(`time${i}`).textContent=`Time Left: ${timeLeft}s`;
-        const vehicles=(d&&d.vehicles)?d.vehicles:{};
-        let tbl=document.getElementById(`veh${i}`);
-        tbl.innerHTML="<tr><th>Type</th><th>Count</th></tr>";
-        Object.keys(vehicles).forEach(k=>{tbl.innerHTML+=`<tr><td>${k}</td><td>${vehicles[k]}</td></tr>`});
-        ["red","yellow","green"].forEach(c=>document.getElementById(`L${i}${c}`).className="light");
-        const sig=d&&d.signal?d.signal:"RED";
-        if(sig==="RED")document.getElementById(`L${i}red`).className="light on red";
-        if(sig==="GREEN")document.getElementById(`L${i}green`).className="light on green";
-        if(sig==="YELLOW")document.getElementById(`L${i}yellow`).className="light on yellow";
-      }catch(e){/* ignore one-off errors */}
-    }
-    setInterval(()=>[1,2,3].forEach(fetchStats),1000);
-  </script>
-</head>
-<body>
-  <header><h1>TraffiX Analysis Dashboard</h1></header>
-  <div class="grid">
-    <div class="panel"><img src="/video_feed1"><div id="time1">Time Left: —</div><table id="veh1"></table><div class="lights"><div id="L1red" class="light"></div><div id="L1yellow" class="light"></div><div id="L1green" class="light"></div></div></div>
-    <div class="panel"><img src="/video_feed2"><div id="time2">Time Left: —</div><table id="veh2"></table><div class="lights"><div id="L2red" class="light"></div><div id="L2yellow" class="light"></div><div id="L2green" class="light"></div></div></div>
-    <div class="panel"><img src="/video_feed3"><div id="time3">Time Left: —</div><table id="veh3"></table><div class="lights"><div id="L3red" class="light"></div><div id="L3yellow" class="light"></div><div id="L3green" class="light"></div></div></div>
-  </div>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <title>TrafficSense — Multi-Intersection AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        background: #5284c1;
+        color: #e8f0ff;
+        font-family: sans-serif;
+        margin: 0;
+      }
+      header {
+        padding: 16px 24px;
+        border-bottom: 1px solid #1f2a37;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        padding: 20px;
+      }
+      .panel {
+        background: #0f172a;
+        border-radius: 12px;
+        padding: 12px;
+      }
+      img {
+        width: 100%;
+        border-radius: 10px;
+      }
+      table {
+        width: 100%;
+        margin-top: 10px;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        padding: 6px;
+        text-align: center;
+        border-bottom: 1px solid #1f2a37;
+      }
+      .lights {
+        display: flex;
+        gap: 6px;
+        justify-content: center;
+        margin-top: 8px;
+      }
+      .light {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #2b3443;
+        opacity: 0.3;
+      }
+      .on.red {
+        background: red;
+        opacity: 1;
+      }
+      .on.green {
+        background: lime;
+        opacity: 1;
+      }
+      .on.yellow {
+        background: yellow;
+        opacity: 1;
+      }
+    </style>
+    <script>
+      async function fetchStats(i) {
+        try {
+          const r = await fetch(`/stats${i}`);
+          if (!r.ok) return;
+          const d = await r.json();
+          const timeLeft = d && typeof d.time_left !== "undefined" ? d.time_left : "—";
+          document.getElementById(`time${i}`).textContent = `Time Left: ${timeLeft}s`;
+          const vehicles = d && d.vehicles ? d.vehicles : {};
+          let tbl = document.getElementById(`veh${i}`);
+          tbl.innerHTML = "<tr><th>Type</th><th>Count</th></tr>";
+          Object.keys(vehicles).forEach((k) => tbl.innerHTML += `<tr><td>${k}</td><td>${vehicles[k]}</td></tr>`);
+
+          ["red", "yellow", "green"].forEach((c) => document.getElementById(`L${i}${c}`).className = "light");
+          
+          const sig = d && d.signal ? d.signal : "RED";
+          if (sig === "RED") document.getElementById(`L${i}red`).className = "light on red";
+          if (sig === "GREEN") document.getElementById(`L${i}green`).className = "light on green";
+          if (sig === "YELLOW") document.getElementById(`L${i}yellow`).className = "light on yellow";
+        } catch (e) {
+          alert("***ERROR IN WORKFLOW [PLEASE CHECK LOGS]***");
+          console.log("ERROR:",e);
+        }
+      }
+      setInterval(() => [1, 2, 3].forEach(fetchStats), 200);
+    </script>
+  </head>
+  <body>
+    <header><h1>TraffiX Analysis Dashboard</h1></header>
+    <div class="grid">
+      <div class="panel">
+        <img src="/video_feed1" />
+        <div id="time1">Time Left: —</div>
+        <table id="veh1"></table>
+        <div class="lights">
+          <div id="L1red" class="light"></div>
+          <div id="L1yellow" class="light"></div>
+          <div id="L1green" class="light"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <img src="/video_feed2" />
+        <div id="time2">Time Left: —</div>
+        <table id="veh2"></table>
+        <div class="lights">
+          <div id="L2red" class="light"></div>
+          <div id="L2yellow" class="light"></div>
+          <div id="L2green" class="light"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <img src="/video_feed3" />
+        <div id="time3">Time Left: —</div>
+        <table id="veh3"></table>
+        <div class="lights">
+          <div id="L3red" class="light"></div>
+          <div id="L3yellow" class="light"></div>
+          <div id="L3green" class="light"></div>
+        </div>
+      </div>
+    </div>
+  </body>
 </html>
