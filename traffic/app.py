@@ -1,111 +1,110 @@
 import time
-from collections import  defaultdict
+from collections import defaultdict
 import cv2
 import numpy as np
 import torch
 from flask import Flask, Response, jsonify, render_template
 from ultralytics import YOLO
+from multiprocessing import Process, Manager
+import base64
 
 app = Flask(__name__, template_folder="../templates")
 
+print(f"CUDA DEVICE IN USE ==>{torch.cuda.get_device_name(0)}")
+torch.backends.cudnn.benchmark = True
 
-
-# ===== CUDA Setup =====
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-if device == 'cuda':
-    print(f"Using CUDA with: {torch.cuda.get_device_name(0)}")
-    torch.backends.cudnn.benchmark = True
-    torch.backends.cudnn.deterministic = False
-else:
-    print("CUDA not available, using CPU")
-
-# ===== Model & Video Paths =====
-model = YOLO("yolo11n.pt")
-model.to(device)
+#Model Setup
+model = YOLO("yolo11n.pt").to("cuda" if torch.cuda.is_available() else "cpu")
 TRACKER_CFG = "bytetrack.yaml"
-video_paths = [r"./v1.mp4",r"./v2.mp4",r"./v3.mp4"]
-caps = [cv2.VideoCapture(v) for v in video_paths]
 
-# ==== ROI (rectangular, can adjust per video) ====
-roi = np.array([[100, 150], [1200, 150], [1200, 650], [100, 650]], np.int32)
 
-# ==== Vehicle map & colors ====
-vehicle_map = {2: "Car", 3: "Motorbike", 5: "Bus", 7: "Truck", 1: "Bicycle"}
-colors = {"Car": (0, 200, 0), "Motorbike": (0, 255, 255),"Bus": (255, 80, 0), "Truck": (0, 80, 255), "Bicycle": (180, 180, 0)}
-
-# ==== Traffic control params ====
-DEFAULT_RED = 120
-DEFAULT_GREEN = 60
-MIN_GREEN = 10
-MAX_GREEN = 90
-YELLOW = 4
-
-# ==== State tracking ====
-states = ["RED"] * 3
-state_starts = [time.time()] * 3
-durations = [DEFAULT_RED] * 3
-# Always keep a well-formed stats object to avoid frontend null checks
-last_stats = [
-    {
-        "vehicles": {},
-        "signal": "RED",
-        "time_left": DEFAULT_RED
-    }
-    for _ in range(3)
+video_paths = ["./v2.mp4", "./v4.mp4", "./v3.mp4"]
+roi_list = [
+    np.array([[100, 150], [1200, 150], [1200, 650], [100, 650]], np.int32),
+    np.array([[50, 100], [1100, 100], [1100, 600], [50, 600]], np.int32),
+    np.array([[200, 200], [1000, 200], [1000, 700], [200, 700]], np.int32)
 ]
 
+def in_roi(pt, roi):
+    return cv2.pointPolygonTest(roi, pt, False) >= 0
 
-def in_roi(pt): return cv2.pointPolygonTest(roi, pt, False) >= 0
+# ===================== Vehicle Map =====================
+vehicle_map = {2: "Car", 3: "Motorbike", 5: "Bus", 7: "Truck", 1: "Bicycle"}
+colors = {
+    "Car": (0, 200, 0),
+    "Motorbike": (0, 255, 255),
+    "Bus": (255, 80, 0),
+    "Truck": (0, 80, 255),
+    "Bicycle": (180, 180, 0),
+}
 
+# ===================== Traffic Signal Controller =====================
+class TrafficSignal:
+    DEFAULT_RED = 120
+    DEFAULT_GREEN = 60
+    MIN_GREEN = 10
+    MAX_GREEN = 90
+    YELLOW = 4
 
-def decide_timing(vehicle_count):
-    """Adaptive green time based on traffic density."""
-    if vehicle_count == 0:
-        return MIN_GREEN
-    if vehicle_count < 5:
-        return 20
-    elif vehicle_count < 15:
-        return 40
-    elif vehicle_count < 30:
-        return 60
-    else:
-        return DEFAULT_GREEN
+    def __init__(self):
+        self.state = "RED"
+        self.start_time = time.time()
+        self.duration = self.DEFAULT_RED
 
+    def decide_timing(self, vehicle_count: int) -> int:
+        if vehicle_count == 0:
+            return self.MIN_GREEN
+        elif vehicle_count < 5:
+            return 20
+        elif vehicle_count < 15:
+            return 40
+        elif vehicle_count < 30:
+            return 60
+        else:
+            return self.DEFAULT_GREEN
 
-def update_signal(i, vehicle_count):
-    now = time.time()
-    elapsed = now - state_starts[i]
+    def update(self, vehicle_count: int):
+        now = time.time()
+        elapsed = now - self.start_time
 
-    if states[i] == "RED":
-        if elapsed >= durations[i]:
-            states[i] = "GREEN"
-            state_starts[i] = now
-            durations[i] = decide_timing(vehicle_count)
+        if self.state == "RED" and elapsed >= self.duration:
+            self.state = "GREEN"
+            self.start_time = now
+            self.duration = self.decide_timing(vehicle_count)
 
-    elif states[i] == "GREEN":
-        if elapsed >= durations[i]:
-            states[i] = "YELLOW"
-            state_starts[i] = now
-            durations[i] = YELLOW
+        elif self.state == "GREEN" and elapsed >= self.duration:
+            self.state = "YELLOW"
+            self.start_time = now
+            self.duration = self.YELLOW
 
-    elif states[i] == "YELLOW":
-        if elapsed >= durations[i]:
-            states[i] = "RED"
-            state_starts[i] = now
-            durations[i] = DEFAULT_RED
+        elif self.state == "YELLOW" and elapsed >= self.duration:
+            self.state = "RED"
+            self.start_time = now
+            self.duration = self.DEFAULT_RED
 
+    def get_status(self):
+        elapsed = time.time() - self.start_time
+        return self.state, max(0, int(self.duration - elapsed))
 
-def generate_frames(i):
-    cap = caps[i]
+# ===================== Worker Function =====================
+def video_worker(i, video_path, roi, shared_data):
+    cap = cv2.VideoCapture(video_path)
+    signal = TrafficSignal()
+
     while True:
+        if not cap.isOpened():
+            cap.release()
+            cap = cv2.VideoCapture(video_path)
+            continue
+
         ok, frame = cap.read()
         if not ok:
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             continue
 
-        # Run tracker (model accepts numpy images directly). Keep a single code path
-        results = model.track(frame, tracker=TRACKER_CFG, persist=True, verbose=False)
-        
+        with torch.no_grad():
+            results = model.track(frame, tracker=TRACKER_CFG, persist=True, verbose=False)
+
         counts = defaultdict(int)
 
         if results and results[0].boxes is not None and results[0].boxes.id is not None:
@@ -117,47 +116,65 @@ def generate_frames(i):
                 if cls not in vehicle_map:
                     continue
                 name = vehicle_map[cls]
-                cx, cy = (int((x1 + x2) // 2), int((y1 + y2) // 2))
+                cx, cy = int((x1 + x2) // 2), int((y1 + y2) // 2)
 
-                if in_roi((cx, cy)):
+                if in_roi((cx, cy), roi):
                     counts[name] += 1
                     cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), colors[name], 2)
                     cv2.putText(frame, name, (int(x1), int(y1 - 5)),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, colors[name], 2)
 
-        # ROI boundary
+        # ROI polygon
         cv2.polylines(frame, [roi], True, (0, 255, 255), 3)
 
+        # Update signal
         total_vehicles = sum(counts.values())
-        update_signal(i, total_vehicles)
+        signal.update(total_vehicles)
+        state, time_left = signal.get_status()
 
-        elapsed = time.time() - state_starts[i]
-        time_left = int(durations[i] - elapsed)
-
-        # Draw signal status
-        color = (0, 0, 255) if states[i] == "RED" else (0, 255, 0) if states[i] == "GREEN" else (0, 255, 255)
-        cv2.putText(frame, f"{states[i]} ({time_left}s)", (50, 60),
+        # Overlay signal
+        color = (0, 0, 255) if state == "RED" else (0, 255, 0) if state == "GREEN" else (0, 255, 255)
+        cv2.putText(frame, f"{state} ({time_left}s)", (50, 60),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.2, color, 3)
 
-        last_stats[i] = {
-            "vehicles": dict(counts),
-            "signal": states[i],
-            "time_left": max(0, time_left)
-        }
+        # Update shared stats
+        shared_data[i]["stats"] = {"vehicles": dict(counts), "signal": state, "time_left": time_left}
 
+        # Encode frame -> base64 for sharing
         _, buf = cv2.imencode(".jpg", frame)
-        yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
+        shared_data[i]["frame"] = base64.b64encode(buf).decode("utf-8")
 
-
+# ===================== Flask Routes =====================
 @app.route("/")
 def index():
     return render_template("index.html")
 
-# Register routes for each feed
-for i in range(3):
-    app.add_url_rule(f"/video_feed{i+1}", f"video_feed{i+1}",
-                     lambda i=i: Response(generate_frames(i), mimetype="multipart/x-mixed-replace; boundary=frame"))
-    app.add_url_rule(f"/stats{i+1}", f"stats{i+1}", lambda i=i: jsonify(last_stats[i]))
+def frame_generator(i, shared_data):
+    while True:
+        if "frame" in shared_data[i]:
+            jpg_bytes = base64.b64decode(shared_data[i]["frame"])
+            yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + jpg_bytes + b"\r\n"
+        else:
+            time.sleep(0.05)
 
+@app.route("/video_feed<int:i>")
+def video_feed(i):
+    return Response(frame_generator(i-1, shared_data),
+                    mimetype="multipart/x-mixed-replace; boundary=frame")
+
+@app.route("/stats<int:i>")
+def stats(i):
+    return jsonify(shared_data[i-1].get("stats", {}))
+
+# ===================== Main =====================
 if __name__ == "__main__":
-    app.run(debug=True)
+    manager = Manager()
+    shared_data = manager.list([manager.dict() for _ in range(len(video_paths))])
+
+    workers = []
+    for i, path in enumerate(video_paths):
+        p = Process(target=video_worker, args=(i, path, roi_list[i], shared_data))
+        p.start()
+        workers.append(p)
+
+    app.run(debug=True, threaded=True)

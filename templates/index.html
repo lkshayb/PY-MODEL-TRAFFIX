@@ -2,131 +2,122 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>TrafficSense — Multi-Intersection AI</title>
+    <title>🚦 TraffiX — Smart Traffic Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-      body {
-        background: #5284c1;
-        color: #e8f0ff;
-        font-family: sans-serif;
-        margin: 0;
-      }
-      header {
-        padding: 16px 24px;
-        border-bottom: 1px solid #1f2a37;
-      }
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 16px;
-        padding: 20px;
-      }
-      .panel {
-        background: #0f172a;
-        border-radius: 12px;
-        padding: 12px;
-      }
-      img {
-        width: 100%;
-        border-radius: 10px;
-      }
-      table {
-        width: 100%;
-        margin-top: 10px;
-        border-collapse: collapse;
-      }
-      th,
-      td {
-        padding: 6px;
-        text-align: center;
-        border-bottom: 1px solid #1f2a37;
-      }
-      .lights {
-        display: flex;
-        gap: 6px;
-        justify-content: center;
-        margin-top: 8px;
-      }
-      .light {
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        background: #2b3443;
-        opacity: 0.3;
-      }
-      .on.red {
-        background: red;
-        opacity: 1;
-      }
-      .on.green {
-        background: lime;
-        opacity: 1;
-      }
-      .on.yellow {
-        background: yellow;
-        opacity: 1;
-      }
-    </style>
     <script>
       async function fetchStats(i) {
-        try {
-          const r = await fetch(`/stats${i}`);
-          if (!r.ok) return;
-          const d = await r.json();
-          const timeLeft = d && typeof d.time_left !== "undefined" ? d.time_left : "—";
-          document.getElementById(`time${i}`).textContent = `Time Left: ${timeLeft}s`;
-          const vehicles = d && d.vehicles ? d.vehicles : {};
-          let tbl = document.getElementById(`veh${i}`);
-          tbl.innerHTML = "<tr><th>Type</th><th>Count</th></tr>";
-          Object.keys(vehicles).forEach((k) => tbl.innerHTML += `<tr><td>${k}</td><td>${vehicles[k]}</td></tr>`);
+    try {
+      const res = await fetch(`/stats${i}`);
+      if (!res.ok) return;
+      const data = await res.json();
+  
+      // Time left
+      const timeLeft = data && typeof data.time_left !== "undefined" ? data.time_left : "—";
+      console.log(timeLeft)
+      document.getElementById(`time${i}`).textContent = `Time Left: ${timeLeft}s`;
+  
+      // Vehicle counts
+      const vehicles = data && data.vehicles ? data.vehicles : {};
+      let table = document.getElementById(`veh${i}`);
+      table.innerHTML = `
+        <tr class="bg-slate-800 text-blue-400 text-sm font-semibold">
+          <th class="px-2 py-1">Type</th>
+          <th class="px-2 py-1">Count</th>
+        </tr>`;
+      Object.keys(vehicles).forEach((k) => {
+        table.innerHTML += `
+          <tr class="border-t border-slate-700 text-sm">
+            <td class="px-2 py-1 text-center">${k}</td>
+            <td class="px-2 py-1 text-center">${vehicles[k]}</td>
+          </tr>`;
+      });
+  
+      // Reset lights
+      ["red", "yellow", "green"].forEach((c) =>
+        document.getElementById(`L${i}${c}`).className =
+          "light w-6 h-6 rounded-full bg-slate-700 opacity-30"
+      );
+  
+      // Update current light
+      const sig = data && data.signal ? data.signal : "RED";
+      if (sig === "RED")
+        document.getElementById(`L${i}red`).className =
+          "light w-6 h-6 rounded-full bg-red-500 shadow-[0_0_15px_#ef4444]";
+      if (sig === "GREEN")
+        document.getElementById(`L${i}green`).className =
+          "light w-6 h-6 rounded-full bg-green-500 shadow-[0_0_15px_#22c55e]";
+      if (sig === "YELLOW")
+        document.getElementById(`L${i}yellow`).className =
+          "light w-6 h-6 rounded-full bg-yellow-400 shadow-[0_0_15px_#eab308]";
+    } catch (err) {
+      console.error("Error fetching stats:", err);
+    }
+  }
+  
+  // Refresh every 500ms
+  setInterval(() => [1, 2, 3].forEach(fetchStats), 500);
+  
 
-          ["red", "yellow", "green"].forEach((c) => document.getElementById(`L${i}${c}`).className = "light");
-          
-          const sig = d && d.signal ? d.signal : "RED";
-          if (sig === "RED") document.getElementById(`L${i}red`).className = "light on red";
-          if (sig === "GREEN") document.getElementById(`L${i}green`).className = "light on green";
-          if (sig === "YELLOW") document.getElementById(`L${i}yellow`).className = "light on yellow";
-        } catch (e) {
-          alert("***ERROR IN WORKFLOW [PLEASE CHECK LOGS]***");
-          console.log("ERROR:",e);
-        }
-      }
-      setInterval(() => [1, 2, 3].forEach(fetchStats), 200);
     </script>
   </head>
-  <body>
-    <header><h1>TraffiX Analysis Dashboard</h1></header>
-    <div class="grid">
-      <div class="panel">
-        <img src="/video_feed1" />
-        <div id="time1">Time Left: —</div>
-        <table id="veh1"></table>
-        <div class="lights">
-          <div id="L1red" class="light"></div>
-          <div id="L1yellow" class="light"></div>
-          <div id="L1green" class="light"></div>
+  <body class="bg-slate-950 text-slate-200 font-sans">
+    <!-- Header -->
+    <header class="px-8 py-5 border-b border-slate-800 bg-slate-900 shadow-lg text-blue-400 text-2xl font-semibold tracking-wide">
+      Traffic Analysis Dashboard
+    </header>
+
+    <!-- Grid Panels -->
+    <main class="grid grid-cols-1 md:grid-cols-3 gap-6 p-8">
+      <!-- Panel 1 -->
+      <section class="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-4 shadow-xl hover:shadow-2xl transition">
+        <img src="/video_feed1" alt="Feed 1"
+             class="w-full h-56 object-cover rounded-xl border border-slate-700" />
+        <div id="time1" class="mt-3 text-center text-blue-300 font-medium text-lg">
+          Time Left: —
         </div>
-      </div>
-      <div class="panel">
-        <img src="/video_feed2" />
-        <div id="time2">Time Left: —</div>
-        <table id="veh2"></table>
-        <div class="lights">
-          <div id="L2red" class="light"></div>
-          <div id="L2yellow" class="light"></div>
-          <div id="L2green" class="light"></div>
+        <table id="veh1"
+               class="w-full mt-3 border-collapse rounded-lg overflow-hidden bg-slate-900/50">
+        </table>
+        <div class="lights flex justify-center gap-3 mt-3">
+          <div id="L1red" class="light w-6 h-6 rounded-full bg-slate-700 opacity-30"></div>
+          <div id="L1yellow" class="light w-6 h-6 rounded-full bg-slate-700 opacity-30"></div>
+          <div id="L1green" class="light w-6 h-6 rounded-full bg-slate-700 opacity-30"></div>
         </div>
-      </div>
-      <div class="panel">
-        <img src="/video_feed3" />
-        <div id="time3">Time Left: —</div>
-        <table id="veh3"></table>
-        <div class="lights">
-          <div id="L3red" class="light"></div>
-          <div id="L3yellow" class="light"></div>
-          <div id="L3green" class="light"></div>
+      </section>
+
+      <!-- Panel 2 -->
+      <section class="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-4 shadow-xl hover:shadow-2xl transition">
+        <img src="/video_feed2" alt="Feed 2"
+             class="w-full h-56 object-cover rounded-xl border border-slate-700" />
+        <div id="time2" class="mt-3 text-center text-blue-300 font-medium text-lg">
+          Time Left: —
         </div>
-      </div>
-    </div>
+        <table id="veh2"
+               class="w-full mt-3 border-collapse rounded-lg overflow-hidden bg-slate-900/50">
+        </table>
+        <div class="lights flex justify-center gap-3 mt-3">
+          <div id="L2red" class="light w-6 h-6 rounded-full bg-slate-700 opacity-30"></div>
+          <div id="L2yellow" class="light w-6 h-6 rounded-full bg-slate-700 opacity-30"></div>
+          <div id="L2green" class="light w-6 h-6 rounded-full bg-slate-700 opacity-30"></div>
+        </div>
+      </section>
+
+      <!-- Panel 3 -->
+      <section class="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-4 shadow-xl hover:shadow-2xl transition">
+        <img src="/video_feed3" alt="Feed 3"
+             class="w-full h-56 object-cover rounded-xl border border-slate-700" />
+        <div id="time3" class="mt-3 text-center text-blue-300 font-medium text-lg">
+          Time Left: —
+        </div>
+        <table id="veh3"
+               class="w-full mt-3 border-collapse rounded-lg overflow-hidden bg-slate-900/50">
+        </table>
+        <div class="lights flex justify-center gap-3 mt-3">
+          <div id="L3red" class="light w-6 h-6 rounded-full bg-slate-700 opacity-30"></div>
+          <div id="L3yellow" class="light w-6 h-6 rounded-full bg-slate-700 opacity-30"></div>
+          <div id="L3green" class="light w-6 h-6 rounded-full bg-slate-700 opacity-30"></div>
+        </div>
+      </section>
+    </main>
   </body>
 </html>
