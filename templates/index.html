@@ -2,82 +2,95 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>🚦 TraffiX — Smart Traffic Dashboard</title>
+    <title>TraffiX Analysis Dashboard</title>
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-      async function fetchStats(i) {
-    try {
-      const res = await fetch(`/stats${i}`);
-      if (!res.ok) return;
-      const data = await res.json();
-  
-      // Time left
-      const timeLeft = data && typeof data.time_left !== "undefined" ? data.time_left : "—";
-      console.log(timeLeft)
-      document.getElementById(`time${i}`).textContent = `Time Left: ${timeLeft}s`;
-  
-      // Vehicle counts
-      const vehicles = data && data.vehicles ? data.vehicles : {};
-      let table = document.getElementById(`veh${i}`);
-      table.innerHTML = `
-        <tr class="bg-slate-800 text-blue-400 text-sm font-semibold">
-          <th class="px-2 py-1">Type</th>
-          <th class="px-2 py-1">Count</th>
-        </tr>`;
-      Object.keys(vehicles).forEach((k) => {
-        table.innerHTML += `
-          <tr class="border-t border-slate-700 text-sm">
-            <td class="px-2 py-1 text-center">${k}</td>
-            <td class="px-2 py-1 text-center">${vehicles[k]}</td>
-          </tr>`;
-      });
-  
-      // Reset lights
-      ["red", "yellow", "green"].forEach((c) =>
-        document.getElementById(`L${i}${c}`).className =
-          "light w-6 h-6 rounded-full bg-slate-700 opacity-30"
-      );
-  
-      // Update current light
-      const sig = data && data.signal ? data.signal : "RED";
-      if (sig === "RED")
-        document.getElementById(`L${i}red`).className =
-          "light w-6 h-6 rounded-full bg-red-500 shadow-[0_0_15px_#ef4444]";
-      if (sig === "GREEN")
-        document.getElementById(`L${i}green`).className =
-          "light w-6 h-6 rounded-full bg-green-500 shadow-[0_0_15px_#22c55e]";
-      if (sig === "YELLOW")
-        document.getElementById(`L${i}yellow`).className =
-          "light w-6 h-6 rounded-full bg-yellow-400 shadow-[0_0_15px_#eab308]";
-    } catch (err) {
-      console.error("Error fetching stats:", err);
+      tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            inter: ['Inter', 'sans-serif'],
+          }
+        }
+      }
     }
-  }
-  
-  // Refresh every 500ms
-  setInterval(() => [1, 2, 3].forEach(fetchStats), 500);
+    </script>
+    <script>
+      async function fetchStats(i) {
+        try {
+          const res = await fetch(`/stats${i}`);
+          if (!res.ok) return;
+          const data = await res.json();
+      
+          // Time left
+          const timeLeft = data && typeof data.time_left !== "undefined" ? data.time_left : "—";
+          document.getElementById(`time${i}`).textContent = `${timeLeft}s`;
+      
+          // Vehicle counts
+          const vehicles = data && data.vehicles ? data.vehicles : {};
+          let table = document.getElementById(`veh${i}`);
+          table.innerHTML = `
+            <tr class="bg-slate-800 text-blue-400 text-sm font-semibold">
+              <th class="px-2 py-1">Type</th>
+              <th class="px-2 py-1">Count</th>
+            </tr>`;
+          Object.keys(vehicles).forEach((k) => {
+            table.innerHTML += `
+              <tr class="border-t border-slate-700 text-sm">
+                <td class="px-2 py-1 text-center">${k}</td>
+                <td class="px-2 py-1 text-center">${vehicles[k]}</td>
+              </tr>`;
+          });
+      
+          // Reset lights
+          ["red", "yellow", "green"].forEach((c) =>
+            document.getElementById(`L${i}${c}`).className =
+              "light w-6 h-6 rounded-full bg-slate-700 opacity-30"
+          );
+      
+          // Update current light
+          const sig = data && data.signal ? data.signal : "RED";
+          if (sig === "RED") document.getElementById(`L${i}red`).className = "light w-6 h-6 rounded-full bg-red-500 shadow-[0_0_15px_#ef4444]"
+          if (sig === "GREEN") document.getElementById(`L${i}green`).className = "light w-6 h-6 rounded-full bg-green-500 shadow-[0_0_15px_#22c55e]"
+          if (sig === "YELLOW") document.getElementById(`L${i}yellow`).className = "light w-6 h-6 rounded-full bg-yellow-400 shadow-[0_0_15px_#eab308]"
+
+        } catch (err) {
+          console.error("Error fetching stats:", err);
+        }
+      }
+      setInterval(() => [1, 2, 3].forEach(fetchStats), 500);
   
 
     </script>
   </head>
-  <body class="bg-slate-950 text-slate-200 font-sans">
+  <body class="bg-slate-950 text-slate-200 font-inter">
     <!-- Header -->
     <header class="px-8 py-5 border-b border-slate-800 bg-slate-900 shadow-lg text-blue-400 text-2xl font-semibold tracking-wide">
-      Traffic Analysis Dashboard
+      TraffiX Analysis Dashboard
     </header>
 
     <!-- Grid Panels -->
     <main class="grid grid-cols-1 md:grid-cols-3 gap-6 p-8">
       <!-- Panel 1 -->
-      <section class="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-4 shadow-xl hover:shadow-2xl transition">
-        <img src="/video_feed1" alt="Feed 1"
-             class="w-full h-56 object-cover rounded-xl border border-slate-700" />
-        <div id="time1" class="mt-3 text-center text-blue-300 font-medium text-lg">
-          Time Left: —
+      <section class="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl pb-4  shadow-xl hover:shadow-2xl transition">
+        <img src="/video_feed1" alt="Feed 1" class="w-full h-56 object-cover rounded-t-2xl" />
+
+        <div class="px-5 flex justify-between mt-8">
+          <div>
+            <div class="text-xl font-bold">Lane Analysis 1</div>
+            <div class="text-sm text-gray-500">Intersection A</div>
+          </div>
+          <div>
+            <div class="text-gray-400 text-sm">Time Left</div>
+            <div id="time1" class="text-xl font-bold">
+              — 
+            </div>
+          </div>
         </div>
-        <table id="veh1"
-               class="w-full mt-3 border-collapse rounded-lg overflow-hidden bg-slate-900/50">
-        </table>
+        <table id="veh1" class="w-full mt-3 border-collapse rounded-lg overflow-hidden bg-slate-900/50"></table>
         <div class="lights flex justify-center gap-3 mt-3">
           <div id="L1red" class="light w-6 h-6 rounded-full bg-slate-700 opacity-30"></div>
           <div id="L1yellow" class="light w-6 h-6 rounded-full bg-slate-700 opacity-30"></div>
@@ -86,15 +99,22 @@
       </section>
 
       <!-- Panel 2 -->
-      <section class="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-4 shadow-xl hover:shadow-2xl transition">
-        <img src="/video_feed2" alt="Feed 2"
-             class="w-full h-56 object-cover rounded-xl border border-slate-700" />
-        <div id="time2" class="mt-3 text-center text-blue-300 font-medium text-lg">
-          Time Left: —
+      <section class="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl pb-4  shadow-xl hover:shadow-2xl transition">
+        <img src="/video_feed2" alt="Feed 1" class="w-full h-56 object-cover rounded-t-2xl" />
+
+        <div class="px-5 flex justify-between mt-8">
+          <div>
+            <div class="text-xl font-bold">Lane Analysis 2</div>
+            <div class="text-sm text-gray-500">Intersection B</div>
+          </div>
+          <div>
+            <div class="text-gray-400 text-sm">Time Left</div>
+            <div id="time2" class="text-xl font-bold">
+              — 
+            </div>
+          </div>
         </div>
-        <table id="veh2"
-               class="w-full mt-3 border-collapse rounded-lg overflow-hidden bg-slate-900/50">
-        </table>
+        <table id="veh2" class="w-full mt-3 border-collapse rounded-lg overflow-hidden bg-slate-900/50"></table>
         <div class="lights flex justify-center gap-3 mt-3">
           <div id="L2red" class="light w-6 h-6 rounded-full bg-slate-700 opacity-30"></div>
           <div id="L2yellow" class="light w-6 h-6 rounded-full bg-slate-700 opacity-30"></div>
@@ -103,15 +123,22 @@
       </section>
 
       <!-- Panel 3 -->
-      <section class="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-4 shadow-xl hover:shadow-2xl transition">
-        <img src="/video_feed3" alt="Feed 3"
-             class="w-full h-56 object-cover rounded-xl border border-slate-700" />
-        <div id="time3" class="mt-3 text-center text-blue-300 font-medium text-lg">
-          Time Left: —
+      <section class="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl pb-4  shadow-xl hover:shadow-2xl transition">
+        <img src="/video_feed3" alt="Feed 1" class="w-full h-56 object-cover rounded-t-2xl" />
+
+        <div class="px-5 flex justify-between mt-8">
+          <div>
+            <div class="text-xl font-bold">Lane Analysis 3</div>
+            <div class="text-sm text-gray-500">Intersection C</div>
+          </div>
+          <div>
+            <div class="text-gray-400 text-sm">Time Left</div>
+            <div id="time3" class="text-xl font-bold">
+              — 
+            </div>
+          </div>
         </div>
-        <table id="veh3"
-               class="w-full mt-3 border-collapse rounded-lg overflow-hidden bg-slate-900/50">
-        </table>
+        <table id="veh3" class="w-full mt-3 border-collapse rounded-lg overflow-hidden bg-slate-900/50"></table>
         <div class="lights flex justify-center gap-3 mt-3">
           <div id="L3red" class="light w-6 h-6 rounded-full bg-slate-700 opacity-30"></div>
           <div id="L3yellow" class="light w-6 h-6 rounded-full bg-slate-700 opacity-30"></div>
